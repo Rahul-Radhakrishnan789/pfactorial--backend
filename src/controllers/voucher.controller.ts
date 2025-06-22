@@ -41,22 +41,71 @@ export const createVoucher = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const getVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getVouchers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const { page = 1, sortBy = 'name', order = 'asc' } = req.query;
-    const limit = 5;
-    const skip = (Number(page) - 1) * limit;
+   
+    const {
+      page = '1',
+      limit = '5',
+      search = '',
+      order = 'asc'  
+    } = req.query as Record<string, string>;
 
-    const vouchers = await Voucher.find()
-      .sort({ [String(sortBy)]: order === 'desc' ? -1 : 1 })
-      .skip(skip)
-      .limit(limit);
+  
+    const filter: any = {};
+    if (search) {
+      filter.name = { $regex: new RegExp(search, 'i') };
+    }
 
-    sendResponse(res, 200, { success: true, data: vouchers });
+  
+    const sortOrder = order === 'des' ? -1 : 1;
+
+   
+    const pageNum = Math.max(parseInt(page, 10), 1);
+    const perPage = Math.max(parseInt(limit, 10), 1);
+    const skip = (pageNum - 1) * perPage;
+
+    const [data, total] = await Promise.all([
+      Voucher.find(filter)
+        .sort({ expiryDate: sortOrder })
+        .skip(skip)
+        .limit(perPage),
+      Voucher.countDocuments(filter),
+    ]);
+sendResponse(res, 200, {
+      success: true,
+        data,   
+        pagination: {
+        total,
+        page: pageNum,
+        limit: perPage,
+        pages: Math.ceil(total / perPage),
+        },
+    });
+
+
   } catch (err: any) {
     next(new CustomError(err.message, 500));
   }
 };
+
+export const getVoucherById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const voucher = await Voucher.findById(id);
+    if (!voucher) {
+      return next(new CustomError('Voucher not found', 404));
+    }
+    sendResponse(res, 200, { success: true, data: voucher });
+    } catch (err: any) {
+    next(new CustomError(err.message, 500));
+    }
+}
+
 
 
 export const updateVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

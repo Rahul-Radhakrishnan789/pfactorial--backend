@@ -40,46 +40,26 @@ export const issueVouchers = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-// Track issued vouchers with filters
-export const getIssuedVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getIssuedVouchers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const { page = '1', status, search, startDate, endDate } = req.query;
-    const limit = 10;
-    const skip = (Number(page) - 1) * limit;
-
-    const filter: any = {};
-    if (status) filter.redeemed = status === 'used';
-    if (status === 'expired') filter['voucher.expiryDate'] = { $lt: new Date() };
-    if (startDate || endDate) {
-      filter.issuedAt = {};
-      if (startDate) filter.issuedAt.$gte = new Date(String(startDate));
-      if (endDate) filter.issuedAt.$lte = new Date(String(endDate));
-    }
-    if (search) {
-      const regex = new RegExp(String(search), 'i');
-      filter.$or = [
-        { 'voucher.name': regex },
-        { 'voucher.code': regex },
-        { 'user.email': regex }
-      ];
-    }
-
-    const data = await issuedVoucher.find(filter)
+  
+    const data = await issuedVoucher
+      .find()
       .populate('voucher', 'name code expiryDate')
       .populate('user', 'email name')
       .sort({ issuedAt: -1 })
-      .skip(skip)
-      .limit(limit);
-      
- sendResponse(res, 200, {
+    
+
+    sendResponse(res, 200, {
       success: true,
-        data,
-        total: await issuedVoucher.countDocuments(filter),
-        page: Number(page), 
-        limit
+      data,
     });
- 
   } catch (err: any) {
+    console.log('Error while fetching issued vouchers:', err);
     next(new CustomError(err.message, 500));
   }
 };
